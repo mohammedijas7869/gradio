@@ -1,5 +1,11 @@
 # website
 
+## 0.73.1
+
+### Features
+
+- [#13135](https://github.com/gradio-app/gradio/pull/13135) [`b55fd8a`](https://github.com/gradio-app/gradio/commit/b55fd8a41e03ba846ad5b13e8dcec8528003b322) - Fix Website Build.  Thanks @freddyaboulton!
+
 ## 0.73.0
 
 ### Features

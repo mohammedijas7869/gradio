@@ -82,10 +82,13 @@ jobs:
       - name: Set tarball name
         id: set_tarball_name
         run: |
-          tar_gz_file=$(find ./js-client-tarball -maxdepth 1 -type f -name "*.tgz" -print -quit)
-          echo "tarball_path=$tar_gz_file" >> $GITHUB_OUTPUT
-          echo "tarball_name=$(basename $tar_gz_file)" >> $GITHUB_OUTPUT
+          tar_gz_file=$(find ./js-client-tarball -maxdepth 1 -type f -name "*.tgz" -print -quit || echo "")
+          if [ -n "$tar_gz_file" ]; then
+            echo "tarball_path=$tar_gz_file" >> $GITHUB_OUTPUT
+            echo "tarball_name=$(basename $tar_gz_file)" >> $GITHUB_OUTPUT
+          fi
       - name: Upload JS Client Tarball to S3
+        if: steps.set_tarball_name.outputs.tarball_path != ''
         id: upload_js_tarball
         continue-on-error: true
         run: |
@@ -160,8 +163,3 @@ jobs:
     with:
       pr_number: ${{ needs.changes.outputs.pr_number }}
       message: spaces~failure~https://github.com/gradio-app/gradio/actions/runs/${{github.run_id}}/
-
-defaults:
-permissions:
-env:
-run-name:

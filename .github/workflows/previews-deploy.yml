@@ -39,9 +39,9 @@ jobs:
           path: output.json
 
   comment-spaces-start:
-    needs: changes
+    needs: [changes]
     uses: "./.github/workflows/comment-queue.yml"
-    if: ${{ needs.changes.outputs.should_run == 'true' }}
+    if: ${{ needs.changes.outputs.should_run == 'true' && needs.changes.outputs.pr_number != 'false' }}
     secrets:
       gh_token: ${{ secrets.COMMENT_TOKEN }}
     with:
@@ -53,6 +53,7 @@ jobs:
     outputs:
       space_url: ${{ steps.upload-demo.outputs.SPACE_URL }}
       js_tarball_url: ${{ steps.upload_js_tarball.outputs.js_tarball_url }}
+      comment_text: ${{ steps.construct_comment.outputs.comment_text }}
     needs: changes
     if: ${{ (github.event.workflow_run.conclusion == 'success' && needs.changes.outputs.should_run == 'true') || github.event.workflow_run.event == 'workflow_dispatch' }}
     runs-on: ubuntu-latest
@@ -109,7 +110,7 @@ jobs:
           curl https://raw.githubusercontent.com/gradio-app/gradio/main/scripts/upload_demo_to_space.py -o scripts/upload_demo_to_space.py
           curl https://raw.githubusercontent.com/gradio-app/gradio/main/scripts/upload_website_demos.py -o scripts/upload_website_demos.py
       - name: make dirs
-        run: mkdir -p demo && mv all_demos/* demo/
+        run: mkdir -p demo && mv all_demos demo/all_demos
       - name: Upload demo to spaces
         if: github.event.workflow_run.event == 'pull_request'
         id: upload-demo
@@ -129,35 +130,49 @@ jobs:
           --WHEEL_URL https://huggingface.co/buckets/gradio/pypi-previews/resolve/${{ needs.changes.outputs.sha }}/ \
           --CLIENT_URL "gradio-client @ git+https://github.com/gradio-app/gradio@${{ needs.changes.outputs.sha }}#subdirectory=client/python" \
           --GRADIO_VERSION ${{ needs.changes.outputs.gradio_version }}
+      - name: Construct Comment Text
+        id: construct_comment
+        shell: bash
+        run: |
+          TEXT="**Install Gradio from this PR**
+          \`\`\`bash
+          pip install https://huggingface.co/buckets/gradio/pypi-previews/resolve/${{ needs.changes.outputs.sha }}/gradio-${{ needs.changes.outputs.gradio_version }}-py3-none-any.whl
+          \`\`\`
+
+          **Install Gradio Python Client from this PR**
+          \`\`\`bash
+          pip install \"gradio-client @ git+https://github.com/gradio-app/gradio@${{ needs.changes.outputs.sha }}#subdirectory=client/python\"
+          \`\`\`"
+
+          if [ -n "${{ steps.upload_js_tarball.outputs.js_tarball_url }}" ]; then
+            TEXT="$TEXT
+
+          **Install Gradio JS Client from this PR**
+          \`\`\`bash
+          npm install ${{ steps.upload_js_tarball.outputs.js_tarball_url }}
+          \`\`\`"
+          fi
+          
+          # Handle multiline output for GITHUB_OUTPUT
+          echo "comment_text<<EOF" >> $GITHUB_OUTPUT
+          echo "$TEXT" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
 
   comment-spaces-success:
     uses: "./.github/workflows/comment-queue.yml"
     needs: [ deploy, changes ]
-    if: needs.changes.outputs.should_run == 'true' && needs.deploy.result == 'success'
+    if: needs.changes.outputs.should_run == 'true' && needs.deploy.result == 'success' && needs.changes.outputs.pr_number != 'false'
     secrets:
       gh_token: ${{ secrets.COMMENT_TOKEN }}
     with:
       pr_number: ${{ needs.changes.outputs.pr_number }}
       message: spaces~success~${{ needs.deploy.outputs.space_url }}
-      additional_text: |
-        **Install Gradio from this PR**
-        ```bash
-        pip install https://huggingface.co/buckets/gradio/pypi-previews/resolve/${{ needs.changes.outputs.sha }}/gradio-${{ needs.changes.outputs.gradio_version }}-py3-none-any.whl
-        ```
+      additional_text: ${{ needs.deploy.outputs.comment_text }}
 
-        **Install Gradio Python Client from this PR**
-        ```bash
-        pip install "gradio-client @ git+https://github.com/gradio-app/gradio@${{ needs.changes.outputs.sha }}#subdirectory=client/python"
-        ```
-
-        **Install Gradio JS Client from this PR**
-        ```bash
-        npm install ${{ needs.deploy.outputs.js_tarball_url }}
-        ```
   comment-spaces-failure:
     uses: "./.github/workflows/comment-queue.yml"
     needs: [ deploy, changes ]
-    if: always() &&  needs.deploy.result == 'failure' && needs.changes.outputs.should_run == 'true'
+    if: always() && needs.deploy.result == 'failure' && needs.changes.outputs.should_run == 'true' && needs.changes.outputs.pr_number != 'false'
     secrets:
       gh_token: ${{ secrets.COMMENT_TOKEN }}
     with:

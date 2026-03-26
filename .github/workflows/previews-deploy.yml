@@ -2,7 +2,7 @@ name: "previews-deploy"
 
 on:
   workflow_run:
-    workflows: ["previews-build"]
+    workflows: [ "previews-build" ]
     types:
       - completed
 
@@ -129,7 +129,7 @@ jobs:
 
   comment-spaces-success:
     uses: "./.github/workflows/comment-queue.yml"
-    needs: [deploy, changes]
+    needs: [ deploy, changes ]
     if: needs.changes.outputs.should_run == 'true' && needs.deploy.result == 'success'
     secrets:
       gh_token: ${{ secrets.COMMENT_TOKEN }}
@@ -153,10 +153,15 @@ jobs:
         ```
   comment-spaces-failure:
     uses: "./.github/workflows/comment-queue.yml"
-    needs: [deploy, changes]
+    needs: [ deploy, changes ]
     if: always() &&  needs.deploy.result == 'failure' && needs.changes.outputs.should_run == 'true'
     secrets:
       gh_token: ${{ secrets.COMMENT_TOKEN }}
     with:
       pr_number: ${{ needs.changes.outputs.pr_number }}
       message: spaces~failure~https://github.com/gradio-app/gradio/actions/runs/${{github.run_id}}/
+
+defaults:
+permissions:
+env:
+run-name:
